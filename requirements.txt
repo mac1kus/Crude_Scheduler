@@ -1,0 +1,6 @@
+Flask
+gunicorn
+openpyxl
+xlrd
+requests
+numpy==1.24.3

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infeasibility Report - Refinery Scheduling</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚠️ Infeasibility Analysis Report</h1>
+            <p>Identify problems and get recommendations to fix scheduling issues</p>
+            <button onclick="window.location.href='/'" style="margin-top: 10px;">← Back to Main</button>
+        </div>
+
+        <div class="input-section">
+            <h2>📋 Analysis Results</h2>
+            <div id="problemsContainer">
+                <p>Click "Analyze Problems" to start the infeasibility analysis...</p>
+            </div>
+        </div>
+
+        <div class="input-section">
+            <h2>💡 Recommended Solutions</h2>
+            <div id="solutionsContainer">
+                <p>Solutions will appear after analysis...</p>
+            </div>
+        </div>
+
+        <div class="btn-group">
+            <button onclick="analyzeProblems()">🔍 Analyze Problems</button>
+            <button onclick="downloadReport()">📄 Download Report (.txt)</button>
+            <button onclick="applyRecommendation()">✅ Apply Best Recommendation</button>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Analyzing infeasibility issues...</p>
+        </div>
+
+        <div id="reportResults" class="results" style="display: none;">
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('problems', this)">🚨 Problems Identified</button>
+                <button class="tab" onclick="showTab('solutions', this)">💡 Solutions</button>
+                <button class="tab" onclick="showTab('parameters', this)">⚙️ Parameter Changes</button>
+            </div>
+
+            <div id="problems" class="tab-content active">
+                <h2>🚨 Critical Issues Found</h2>
+                <div id="criticalIssues"></div>
+            </div>
+
+            <div id="solutions" class="tab-content">
+                <h2>💡 Recommended Actions</h2>
+                <div id="recommendedActions"></div>
+            </div>
+
+            <div id="parameters" class="tab-content">
+                <h2>⚙️ Suggested Parameter Changes</h2>
+                <div id="parameterChanges"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentAnalysis = null;
+
+        /**
+         * Show/hide loading spinner
+         */
+        function showLoading(show = true) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+            document.querySelectorAll('button').forEach(btn => btn.disabled = show);
+        }
+
+        /**
+         * Handle tab switching
+         */
+        function showTab(tabName, clickedElement) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            if (clickedElement) {
+                clickedElement.classList.add('active');
+            }
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        /**
+         * Analyze problems and generate infeasibility report
+         */
+        async function analyzeProblems() {
+            showLoading(true);
+
+            try {
+                // Get parameters from URL or local storage (passed from main page)
+                const urlParams = new URLSearchParams(window.location.search);
+                const simulationParams = JSON.parse(urlParams.get('params') || '{}');
+                
+                if (Object.keys(simulationParams).length === 0) {
+                    alert('No simulation parameters found. Please run simulation from main page first.');
+                    showLoading(false);
+                    return;
+                }
+
+                const response = await fetch('/api/infeasibility_analysis', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(simulationParams)
+                });
+
+                if (!response.ok) throw new Error('Analysis failed');
+                
+                currentAnalysis = await response.json();
+                displayAnalysisResults(currentAnalysis);
+                document.getElementById('reportResults').style.display = 'block';
+                
+            } catch (error) {
+                alert('Error analyzing problems: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        /**
+         * Display analysis results
+         */
+        function displayAnalysisResults(analysis) {
+            // Display critical issues
+            const criticalContainer = document.getElementById('criticalIssues');
+            criticalContainer.innerHTML = '';
+            
+            if (analysis.critical_issues && analysis.critical_issues.length > 0) {
+                analysis.critical_issues.forEach(issue => {
+                    criticalContainer.innerHTML += `
+                        <div class="alert alert-danger">
+                            <strong>${issue.type}:</strong> ${issue.description}
+                            <br><small>Impact: ${issue.impact}</small>
+                        </div>
+                    `;
+                });
+            } else {
+                criticalContainer.innerHTML = '<div class="alert alert-success">✅ No critical issues found!</div>';
+            }
+
+            // Display recommended actions
+            const actionsContainer = document.getElementById('recommendedActions');
+            actionsContainer.innerHTML = '';
+            
+            if (analysis.recommendations && analysis.recommendations.length > 0) {
+                analysis.recommendations.forEach((rec, index) => {
+                    const priority = rec.priority === 'high' ? 'danger' : rec.priority === 'medium' ? 'warning' : 'success';
+                    actionsContainer.innerHTML += `
+                        <div class="alert alert-${priority}">
+                            <strong>Recommendation ${index + 1} (${rec.priority} priority):</strong>
+                            <p>${rec.description}</p>
+                            <p><strong>Expected Impact:</strong> ${rec.expected_impact}</p>
+                            ${rec.parameter_changes ? `<small>Changes: ${JSON.stringify(rec.parameter_changes)}</small>` : ''}
+                        </div>
+                    `;
+                });
+            }
+
+            // Display parameter changes
+            const parametersContainer = document.getElementById('parameterChanges');
+            parametersContainer.innerHTML = '';
+            
+            if (analysis.parameter_suggestions) {
+                Object.entries(analysis.parameter_suggestions).forEach(([param, suggestion]) => {
+                    parametersContainer.innerHTML += `
+                        <div class="metric-card">
+                            <div class="metric-value">${suggestion.recommended_value}</div>
+                            <div class="metric-label">${param.replace('_', ' ').toUpperCase()}</div>
+                            <small>Current: ${suggestion.current_value} | Reason: ${suggestion.reason}</small>
+                        </div>
+                    `;
+                });
+            }
+        }
+
+        /**
+         * Download infeasibility report as text file
+         */
+        async function downloadReport() {
+            if (!currentAnalysis) {
+                alert('Please run analysis first');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/export_infeasibility_report', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(currentAnalysis)
+                });
+
+                if (!response.ok) throw new Error('Export failed');
+                
+                const reportData = await response.json();
+                
+                // Create and download file
+                const blob = new Blob([reportData.report_text], { type: 'text/plain' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = reportData.filename;
+                a.click();
+                window.URL.revokeObjectURL(url);
+                
+            } catch (error) {
+                alert('Error downloading report: ' + error.message);
+            }
+        }
+
+        /**
+         * Apply the best recommendation automatically
+         */
+        function applyRecommendation() {
+            if (!currentAnalysis || !currentAnalysis.recommendations || currentAnalysis.recommendations.length === 0) {
+                alert('No recommendations available to apply');
+                return;
+            }
+
+            const bestRec = currentAnalysis.recommendations[0]; // First recommendation is usually highest priority
+            if (bestRec.parameter_changes) {
+                const paramString = JSON.stringify(bestRec.parameter_changes, null, 2);
+                const newUrl = '/' + '?' + 'recommended_params=' + encodeURIComponent(paramString);
+                window.location.href = newUrl;
+            } else {
+                alert('This recommendation requires manual implementation:\n\n' + bestRec.description);
+            }
+        }
+
+        // Auto-run analysis if parameters are provided in URL
+        window.addEventListener('load', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('params')) {
+                analyzeProblems();
+            }
+        });
+    </script>
+</body>
+</html>
