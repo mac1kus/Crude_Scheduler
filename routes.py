@@ -1425,6 +1425,25 @@ def register_routes(app):
             sim.generate_cargo_report()
             sim.daily_log_rows.sort(key=lambda x: datetime.strptime(x["Timestamp"], "%d/%m/%Y %H:%M"))
             sim.save_csvs()
+            
+            # Send CSV files to user's browser for download
+            import zipfile
+            import glob
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            csv_files = glob.glob(f"/tmp/*_{timestamp}.csv")
+            
+            if csv_files:
+                zip_path = f"/tmp/simulation_results_{timestamp}.zip"
+                with zipfile.ZipFile(zip_path, 'w') as zipf:
+                    for csv_file in csv_files:
+                        zipf.write(csv_file, os.path.basename(csv_file))
+                
+                # Clean up individual CSV files
+                for csv_file in csv_files:
+                    try:
+                        os.remove(csv_file)
+                    except:
+                        pass
 
             alerts = []
             for log_entry in sim.daily_log_rows:

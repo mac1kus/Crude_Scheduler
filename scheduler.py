@@ -1441,7 +1441,8 @@ class Simulator:
                   cargo_path="cargo_report.csv",
                   inventory_path="inventory_data.csv"):
         # Get Downloads folder path
-        downloads_folder = os.path.join(os.path.expanduser("~"), "Downloads")
+        # Use environment variable for downloads folder (defaults to ~/Downloads for local, set to /tmp in Render)
+        downloads_folder = os.environ.get("DOWNLOADS_FOLDER", os.path.join(os.path.expanduser("~"), "Downloads"))
       
         
         if self.infeasible:
