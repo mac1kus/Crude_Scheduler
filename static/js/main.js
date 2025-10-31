@@ -495,59 +495,48 @@ async function runSimulation() {
     try {
         Utils.showLoading(true);
 
-        // ✅ This is the key change. We decide which parameters to use.
+        // --- 1. Parameter Collection and Preparation ---
         let params;
         if (currentResults && currentResults.parameters && currentResults.parameters.optimized_cargo_schedule) {
-            // If an optimized schedule exists, use the parameters that were saved with it.
             console.log("Running simulation with the OPTIMIZED cargo schedule.");
             params = currentResults.parameters; 
             params.cargo_schedule = params.optimized_cargo_schedule;
-            // UPDATE with latest form values
             const freshData = collectFormData();
+            // Update time and gap parameters with fresh UI values
             params.berth_gap_hours_min = freshData.berth_gap_hours_min;
             params.berth_gap_hours_max = freshData.berth_gap_hours_max;
-
-            // --- CRITICAL FIX: Update the scheduling window calculation ---
-            // Recalculate duration based on new input fields
             params.horizonDays = freshData.horizonDays;
             params.horizonHours = freshData.horizonHours;
             params.horizonMinutes = freshData.horizonMinutes;
-            params.schedulingWindow = freshData.schedulingWindow; // The float value
-            // --- END CRITICAL FIX ---
-
+            params.schedulingWindow = freshData.schedulingWindow;
         } else {
-            // Otherwise, run a normal simulation with fresh data from the form.
             console.log("Running a standard simulation from UI data.");
             params = collectFormData();
         }
-        // Final check on the core parameter to ensure we send a float to the backend
+
         if (typeof params.schedulingWindow !== 'number' || isNaN(params.schedulingWindow)) {
              throw new Error('Simulation Horizon (schedulingWindow) is missing or invalid.');
         }
 
-
+        // --- 2. API Call to Backend ---
         const response = await fetch(API_ENDPOINTS.SIMULATE, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(params)
         });
         
-
         if (!response.ok) {
             throw new Error('Simulation request failed');
         }
 
-        // Store the new simulation results. This overwrites the old `currentResults`
-        // but keeps the optimization summary if it exists.
+        // --- 3. Process Results ---
         const simulationData = await response.json();
         if (simulationData.error) {
             alert('Simulation Error: ' + simulationData.error);
             return;
         }
 
-        // Transform daily_summary_rows into format expected by displayDailyReport
+        // Transform and store results (Keeping existing logic for data processing)
         if (simulationData.simulation_data) {
             simulationData.simulation_data = simulationData.simulation_data.map((row, index) => {
                 const dateStr = row["Date"] || "";
@@ -567,7 +556,6 @@ async function runSimulation() {
                 if (simulationData.simulation_log) {
                     const currentDate = dateStr.split(' ')[0];
                     
-                    // Extract certified stock from DAILY_STATUS event
                     const dailyStatusLog = simulationData.simulation_log.find(log => {
                         if (!log.Timestamp || !log.Event) return false;
                         const logDate = log.Timestamp.split(' ')[0];
@@ -575,21 +563,18 @@ async function runSimulation() {
                     });
                     
                     if (dailyStatusLog && dailyStatusLog.Message) {
-                        // Extract TOTAL stock from message: "... TOTAL: 4,410,000 bbl"
                         const totalStockMatch = dailyStatusLog.Message.match(/TOTAL:\s*([\d,]+)\s*bbl/);
                         if (totalStockMatch) {
                             certifiedStock = parseFloat(totalStockMatch[1].replace(/,/g, ''));
                         }
                     }
                     
-                    // Find ALL ARRIVAL events for this date
                     const arrivalsOnThisDay = simulationData.simulation_log.filter(log => {
                         if (!log.Timestamp || !log.Event) return false;
                         const logDate = log.Timestamp.split(' ')[0];
                         return log.Event === 'ARRIVAL' && logDate === currentDate;
                     });
                     
-                    // Match each arrival with cargo_report to get type and volume
                     if (arrivalsOnThisDay.length > 0 && simulationData.cargo_report) {
                         arrivalsOnThisDay.forEach(arrival => {
                             const cargoMatch = simulationData.cargo_report.find(cargo => 
@@ -622,11 +607,10 @@ async function runSimulation() {
             });
         }
 
-        // Preserve the optimization summary from the previous step
         const optimizationSummary = currentResults ? currentResults.optimization_results : null;
-        currentResults = simulationData; // Overwrite with new simulation data
+        currentResults = simulationData;
         if (optimizationSummary) {
-            currentResults.optimization_results = optimizationSummary; // Restore summary
+            currentResults.optimization_results = optimizationSummary;
         }
 
         // Display results
@@ -635,6 +619,43 @@ async function runSimulation() {
 
         Utils.showResults();
         showTab('simulation', document.querySelector('.tab'));
+        
+        // --- 4. Handle Delayed CSV File Downloads (The Fix) ---
+        if (simulationData.csv_files && Object.keys(simulationData.csv_files).length > 0) {
+            
+            console.log('Attempting sequential download of CSV files to avoid browser block.');
+
+            const filesToDownload = Object.entries(simulationData.csv_files);
+            
+            // Helper function to create a delay
+            const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+            // Execute downloads sequentially with a small delay
+            (async () => {
+                for (const [filename, url] of filesToDownload) {
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = filename;
+                    link.style.display = 'none';
+                    document.body.appendChild(link);
+                    
+                    // Trigger the download
+                    link.click();
+                    document.body.removeChild(link);
+
+                    // Introduce a small delay (50ms)
+                    await delay(50); 
+                }
+                
+                // Show success message after all downloads have been initiated
+                const fileCount = filesToDownload.length;
+                console.log(`✅ Download process initiated for ${fileCount} CSV files. Check your downloads folder.`);
+            })();
+            
+        } else if (simulationData.download_url) {
+            // Legacy: Handle old zip file format
+            window.location.href = simulationData.download_url;
+        }
 
     } catch (error) {
         console.error('Simulation error:', error);
