@@ -644,7 +644,7 @@ async function runSimulation() {
                     document.body.removeChild(link);
 
                     // Introduce a small delay (50ms)
-                    await delay(50); 
+                    await delay(250); 
                 }
                 
                 // Show success message after all downloads have been initiated
