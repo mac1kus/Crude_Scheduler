@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, send_file
+from flask import Flask, render_template, request, jsonify, redirect, url_for, send_file,send_from_directory
 from datetime import datetime,timedelta
 import os
 import io
@@ -1311,6 +1311,10 @@ def _create_tank_filling_volumes_sheet(wb, results):
 
 def register_routes(app):
     """Register all routes with the Flask app"""
+    
+    # Set secret key if not already set
+    if not app.secret_key:
+        app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'crude-scheduler-secret-key-change-in-production')
 
     @app.route('/')
     def root():
@@ -1426,24 +1430,40 @@ def register_routes(app):
             sim.daily_log_rows.sort(key=lambda x: datetime.strptime(x["Timestamp"], "%d/%m/%Y %H:%M"))
             sim.save_csvs()
             
-            # Send CSV files to user's browser for download
-            import zipfile
+            # Get ALL CSV files created by save_csvs() - using broader pattern
             import glob
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            csv_files = glob.glob(f"/tmp/*_{timestamp}.csv")
             
+            # Try multiple patterns to catch all CSV files
+            csv_files = []
+            
+            # Pattern 1: Files with timestamp
+            csv_files.extend(glob.glob(f"/tmp/*_{timestamp}.csv"))
+            
+            # Pattern 2: Common CSV filenames (in case timestamp format differs)
+            csv_patterns = [
+                "/tmp/tank_snap_shots*.csv",
+                "/tmp/simulation_log*.csv", 
+                "/tmp/daily_summary*.csv",
+                "/tmp/cargo_report*.csv"
+            ]
+            
+            for pattern in csv_patterns:
+                matching_files = glob.glob(pattern)
+                # Add only files modified in last 10 seconds (recently created)
+                import time
+                current_time = time.time()
+                for f in matching_files:
+                    if os.path.exists(f) and (current_time - os.path.getmtime(f)) < 10:
+                        if f not in csv_files:
+                            csv_files.append(f)
+            
+            csv_download_urls = {}
             if csv_files:
-                zip_path = f"/tmp/simulation_results_{timestamp}.zip"
-                with zipfile.ZipFile(zip_path, 'w') as zipf:
-                    for csv_file in csv_files:
-                        zipf.write(csv_file, os.path.basename(csv_file))
-                
-                # Clean up individual CSV files
                 for csv_file in csv_files:
-                    try:
-                        os.remove(csv_file)
-                    except:
-                        pass
+                    filename = os.path.basename(csv_file)
+                    csv_download_urls[filename] = f"/download/{filename}"
+
 
             alerts = []
             for log_entry in sim.daily_log_rows:
@@ -1453,6 +1473,7 @@ def register_routes(app):
 
             return jsonify({
                 'success': True,
+                'csv_files': csv_download_urls,
                 'daily_summary': sim.daily_summary_rows,
                 'cargo_report': sim.cargo_report_rows,
                 'simulation_log': sim.daily_log_rows,
@@ -1734,3 +1755,50 @@ def register_routes(app):
             import traceback
             traceback.print_exc()
             return jsonify({'error': f'Failed to export solver report: {str(e)}'}), 500
+    
+    # routes.py (NEW /download/<filename> endpoint using send_from_directory)
+
+    @app.route("/download/<filename>")
+    def download_file(filename):
+        """
+        Download simulation results using send_from_directory for robustness.
+        Uses call_on_close to ensure the file is deleted *after* the browser 
+        has finished downloading it from the server.
+        """
+        # Define the base directory (always /tmp on Render)
+        directory_path = "/tmp"
+        
+        try:
+            # 1. Security Check: Prevent path traversal (e.g., trying to access ../../etc/passwd)
+            if ".." in filename or "/" in filename:
+                return jsonify({"error": "Invalid filename requested"}), 400
+
+            file_path = os.path.join(directory_path, filename)
+
+            if not os.path.exists(file_path):
+                return jsonify({"error": "File not found on server"}), 404
+            
+            # 2. Use send_from_directory for reliable serving
+            response = send_from_directory(
+                directory_path, 
+                filename, 
+                as_attachment=True, 
+                download_name=filename # Explicitly set the download name
+            )
+            
+            # 3. Schedule cleanup to happen *after* the response stream is closed
+            @response.call_on_close
+            def cleanup_file():
+                try:
+                    os.remove(file_path)
+                except Exception as e:
+                    # Log cleanup error but don't stop the response
+                    print(f"Error cleaning up file {file_path}: {e}")
+
+            return response
+            
+        except Exception as e:
+            print(f"Error in download_file: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({"error": "An unexpected error occurred during file transfer."}), 500
