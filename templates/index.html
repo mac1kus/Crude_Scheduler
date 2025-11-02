@@ -96,7 +96,7 @@
                         <tr style="background-color: #e9ecef; font-weight: bold;">
                             <td style="padding: 10px;">TOTAL</td>
                             <td style="padding: 10px; text-align: center;"><span id="totalPercentage">100</span>%</td>
-                            <td style="padding: 10px; text-align: center;"><span id="totalVolume">50,000</span> bbl</td>
+                            <td style="padding: 10px; text-align: center;"><span id="totalVolume">450,000</span> bbl</td>
                             <td style="padding: 10px;"></td>
                         </tr>
                     </tfoot>
@@ -215,7 +215,7 @@
             
             <div class="input-row">
                 <label>Handymax Capacity:</label>
-                <input type="number" id="handymaxCapacity" value="350000" min="0" onchange="autoCalculatePumpingDays(); autoSaveInputs()">
+                <input type="number" id="handymaxCapacity" value="0" min="0" onchange="autoCalculatePumpingDays(); autoSaveInputs()">
                 <span>bbl (0 = not available)</span>
             </div>
             <div class="input-row">
@@ -253,16 +253,6 @@
                 <div class="input-row">
                     <label>Manual Departure Date & Time:</label>
                     <input type="datetime-local" id="departureDateTimeManual" value="2025-08-15T08:00" onchange="autoSaveInputs()">
-                </div>
-            </div>
-
-            <!-- Solver Options & Result -->
-            <div id="solverDepartureSection">
-                <h3>🎯 Solver Configuration</h3>
-                <div class="input-row">
-                    <label>Solver Recommended Departure:</label>
-                    <input type="text" id="solverRecommendedDeparture" readonly placeholder="Run simulation to see solver result">
-                    <span>(calculated optimal departure date & time)</span>
                 </div>
             </div>
 
