@@ -21,7 +21,7 @@
             <h2>⚙️ Refinery Configuration</h2>
             <div class="input-row">
                 <label>Processing Rate:</label>
-                <input type="number" id="processingRate" value="50000" min="1000" step="1000" onchange="autoSaveInputs()">
+                <input type="number" id="processingRate" value="450000" min="1000" step="1000" onchange="autoSaveInputs()">
                 <span>bbl/day</span>
             </div>
             <div class="input-row">
@@ -31,23 +31,10 @@
                 <button type="button" onclick="removeOneTank()" style="margin-left: 5px; padding: 5px 10px;">-1</button>
                 <span id="tankCountDisplay">tanks (12 tanks total)</span>
             </div>
-        
-            <div class="input-row">
-                <label>First Cargo Min Ready Tanks:</label>
-                <input type="number" id="firstCargoMinReady" value="8" min="1" max="20" onchange="autoSaveInputs()">
-                <span>tanks (lower threshold for first cargo)</span>
-            </div>
-
-            <div class="input-row">
-                <label>First Cargo Max Ready Tanks:</label>
-                <input type="number" id="firstCargoMaxReady" value="9" min="1" max="20" onchange="autoSaveInputs()">
-                <span>tanks (upper threshold for first cargo)</span>
-            </div>
-
 
             <div class="input-row">
                 <label>Tank Capacity (each):</label>
-                <input type="number" id="tankCapacity" value="500000" min="100000" step="50000" onchange="updateTankCapacities();populateTankLevels(); autoCalculatePumpingDays(); autoSaveInputs()">
+                <input type="number" id="tankCapacity" value="600000" min="100000" step="50000" onchange="updateTankCapacities();populateTankLevels(); autoCalculatePumpingDays(); autoSaveInputs()">
                 <span>bbl (will auto-populate all tank levels)</span>
             </div>
             <div class="input-row">
@@ -55,13 +42,7 @@
                 <input type="number" id="pumpingRate" value="30000" min="100" step="100" onchange="autoCalculatePumpingDays(); autoSaveInputs()">
                 <span>bbl/hour</span>
             </div>
-            
-            <div class="input-row">
-                <label style="font-weight: bold; color: #dc3545;">Calculated Rate Step:</label>
-                <input type="number" id="rateStepDisplay" readonly style="background-color: #e9ecef;">
-                <span style="font-family: monospace; font-size: 0.9em;">(1 - Min Factor) / (Buffer Tanks - 1)</span>
-            </div>
-
+           
         </div>
 
         <!-- NEW CRUDE MIX CONFIGURATION SECTION -->
@@ -88,23 +69,28 @@
                     <tbody id="crudeMixTableBody">
                         <!-- Default crude mix rows -->
                         <tr class="crude-mix-row">
-                            <td style="padding: 5px;"><input type="text" class="crude-name-input" value="Arab Light" placeholder="Enter crude name" style="width: 90%;" onchange="updateCrudeMix()"></td>
-                            <td style="padding: 5px; text-align: center;"><input type="number" class="crude-percentage-input" value="40" min="0" max="100" step="0.1" style="width: 80px;" onchange="updateCrudeMix()"></td>
+                            <td style="padding: 5px;"><input type="text" class="crude-name-input" value="Bonny Light" placeholder="Enter crude name" style="width: 90%;" onchange="updateCrudeMix()"></td>
+                            <td style="padding: 5px; text-align: center;"><input type="number" class="crude-percentage-input" value="50" min="0" max="100" step="0.1" style="width: 80px;" onchange="updateCrudeMix()"></td>
                             <td style="padding: 5px; text-align: center;"><span class="crude-volume-display">20,000</span></td>
                             <td style="padding: 5px; text-align: center;"><button class="remove-crude-btn" onclick="removeCrudeRow(this)" style="background-color: #dc3545; color: white; border: none; padding: 3px 8px; cursor: pointer;">✕</button></td>
                         </tr>
                         <tr class="crude-mix-row">
-                            <td style="padding: 5px;"><input type="text" class="crude-name-input" value="Arab Heavy" placeholder="Enter crude name" style="width: 90%;" onchange="updateCrudeMix()"></td>
+                            <td style="padding: 5px;"><input type="text" class="crude-name-input" value="Forcados" placeholder="Enter crude name" style="width: 90%;" onchange="updateCrudeMix()"></td>
                             <td style="padding: 5px; text-align: center;"><input type="number" class="crude-percentage-input" value="30" min="0" max="100" step="0.1" style="width: 80px;" onchange="updateCrudeMix()"></td>
                             <td style="padding: 5px; text-align: center;"><span class="crude-volume-display">15,000</span></td>
                             <td style="padding: 5px; text-align: center;"><button class="remove-crude-btn" onclick="removeCrudeRow(this)" style="background-color: #dc3545; color: white; border: none; padding: 3px 8px; cursor: pointer;">✕</button></td>
                         </tr>
                         <tr class="crude-mix-row">
-                            <td style="padding: 5px;"><input type="text" class="crude-name-input" value="Murban" placeholder="Enter crude name" style="width: 90%;" onchange="updateCrudeMix()"></td>
-                            <td style="padding: 5px; text-align: center;"><input type="number" class="crude-percentage-input" value="30" min="0" max="100" step="0.1" style="width: 80px;" onchange="updateCrudeMix()"></td>
+                            <td style="padding: 5px;"><input type="text" class="crude-name-input" value="Quaiboe" placeholder="Enter crude name" style="width: 90%;" onchange="updateCrudeMix()"></td>
+                            <td style="padding: 5px; text-align: center;"><input type="number" class="crude-percentage-input" value="10" min="0" max="100" step="0.1" style="width: 80px;" onchange="updateCrudeMix()"></td>
                             <td style="padding: 5px; text-align: center;"><span class="crude-volume-display">15,000</span></td>
                             <td style="padding: 5px; text-align: center;"><button class="remove-crude-btn" onclick="removeCrudeRow(this)" style="background-color: #dc3545; color: white; border: none; padding: 3px 8px; cursor: pointer;">✕</button></td>
                         </tr>
+                        <tr class="crude-mix-row">
+                            <td style="padding: 5px;"><input type="text" class="crude-name-input" value="Erha" placeholder="Enter crude name" style="width: 90%;" onchange="updateCrudeMix()"></td>
+                            <td style="padding: 5px; text-align: center;"><input type="number" class="crude-percentage-input" value="10" min="0" max="100" step="0.1" style="width: 80px;" onchange="updateCrudeMix()"></td>
+                            <td style="padding: 5px; text-align: center;"><span class="crude-volume-display">0</span></td>
+                            <td style="padding: 5px; text-align: center;"><button class="remove-crude-btn" onclick="removeCrudeRow(this)" style="background-color: #dc3545; color: white; border: none; padding: 3px 8px; cursor: pointer;">✕</button></td>
                     </tbody>
                     <tfoot>
                         <tr style="background-color: #e9ecef; font-weight: bold;">
